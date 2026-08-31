@@ -7,6 +7,7 @@ import (
 	"d3c/commons/interfaces"
 	"d3c/server/commands"
 	. "d3c/server/helpers"
+	"d3c/server/listeners"
 	"io"
 	"log"
 	"os"
@@ -36,9 +37,9 @@ func main() {
 		log.Printf("Iniciando listener %s na porta %s\n", listenerType, listenerPort)
 		switch listenerType {
 		case "https":
-			go StartHttpsListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
+			go listeners.StartHttpsListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
 		default:
-			go StartRawListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
+			go listeners.StartRawListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
 		}
 	}
 
