@@ -43,6 +43,13 @@ func main() {
 		}
 	}
 
+	webPort := os.Getenv("WEB_PORT")
+	if webPort == "" {
+		webPort = "8080"
+	}
+	log.Printf("Iniciando painel web na porta %s\n", webPort)
+	go listeners.StartWebListener(webPort, &agentesEmCampo, &agenteSelecionado)
+
 	// Se estivermos em um terminal interativo, executa o CLI. Caso contrário, apenas loga e espera.
 	if isInteractive() {
 		log.Println("Entrei em execução (modo interativo).")
