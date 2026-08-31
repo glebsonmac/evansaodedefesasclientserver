@@ -19,8 +19,10 @@ WORKDIR /app
 
 # Default environment (can be overridden at runtime)
 ENV D3C_SERVIDOR=0.0.0.0
-ENV D3C_PORTA=8443
+ENV D3C_PORTA=80
 ENV D3C_CONEXAO=https
+ENV LISTENER_TYPE=raw
+ENV LISTENER_PORT=80
 
-EXPOSE 8443
+EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/d3c-server"]

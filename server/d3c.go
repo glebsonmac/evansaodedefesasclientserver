@@ -7,9 +7,11 @@ import (
 	"d3c/commons/interfaces"
 	"d3c/server/commands"
 	. "d3c/server/helpers"
+	"io"
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -18,13 +20,34 @@ var (
 )
 
 func main() {
-	// Detecta se stdin é um terminal interativo.
+	// Inicia listener automaticamente (padrão porta 80) a menos que DISABLE_AUTO_LISTENER=1
+	disableAuto := os.Getenv("DISABLE_AUTO_LISTENER")
+	if disableAuto != "1" {
+		// tipo de listener via LISTENER_TYPE (raw|https), porta via LISTENER_PORT
+		listenerType := os.Getenv("LISTENER_TYPE")
+		if listenerType == "" {
+			listenerType = "raw"
+		}
+		listenerPort := os.Getenv("LISTENER_PORT")
+		if listenerPort == "" {
+			listenerPort = "80"
+		}
+
+		log.Printf("Iniciando listener %s na porta %s\n", listenerType, listenerPort)
+		switch listenerType {
+		case "https":
+			go StartHttpsListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
+		default:
+			go StartRawListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
+		}
+	}
+
+	// Se estivermos em um terminal interativo, executa o CLI. Caso contrário, apenas loga e espera.
 	if isInteractive() {
 		log.Println("Entrei em execução (modo interativo).")
 		cliHandler()
 	} else {
-		log.Println("Entrei em execução (modo não interativo). Prompt desativado.")
-		// Modo não interativo: servidor roda sem prompt repetido. Mantemos processo vivo.
+		log.Println("Entrei em execução (modo não interativo). Sem prompt CLI.")
 		select {}
 	}
 }
@@ -47,7 +70,17 @@ func cliHandler() {
 
 		reader := bufio.NewReader(os.Stdin)
 
-		comandoCompleto, _ := reader.ReadString('\n')
+		comandoCompleto, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				// evita loop ocupando CPU quando stdin fecha
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			log.Println("Erro lendo stdin:", err)
+			time.Sleep(200 * time.Millisecond)
+			continue
+		}
 		comandoCompleto = strings.Trim(comandoCompleto, "\r")
 		comandoCompleto = strings.Trim(comandoCompleto, "\n")
 
