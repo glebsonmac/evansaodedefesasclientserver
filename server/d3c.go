@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 )
 
 var (
@@ -21,43 +20,45 @@ var (
 )
 
 func main() {
-	// Inicia listener automaticamente (padrão porta 80) a menos que DISABLE_AUTO_LISTENER=1
 	disableAuto := os.Getenv("DISABLE_AUTO_LISTENER")
 	if disableAuto != "1" {
-		// tipo de listener via LISTENER_TYPE (raw|https), porta via LISTENER_PORT
 		listenerType := os.Getenv("LISTENER_TYPE")
 		if listenerType == "" {
-			listenerType = "raw"
+			listenerType = "http"
 		}
 		listenerPort := os.Getenv("LISTENER_PORT")
 		if listenerPort == "" {
 			listenerPort = "80"
 		}
-
 		log.Printf("Iniciando listener %s na porta %s\n", listenerType, listenerPort)
 		switch listenerType {
 		case "https":
 			go listeners.StartHttpsListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
-		default:
+			webPort := os.Getenv("WEB_PORT")
+			if webPort == "" {
+				webPort = "8080"
+			}
+			log.Printf("Iniciando painel web na porta %s\n", webPort)
+			go listeners.StartWebListener(webPort, &agentesEmCampo, &agenteSelecionado)
+		case "raw":
 			go listeners.StartRawListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
+			webPort := os.Getenv("WEB_PORT")
+			if webPort == "" {
+				webPort = "8080"
+			}
+			log.Printf("Iniciando painel web na porta %s\n", webPort)
+			go listeners.StartWebListener(webPort, &agentesEmCampo, &agenteSelecionado)
+		default: // http: agente + painel web na mesma porta
+			go listeners.StartHttpListener(listenerPort, &agentesEmCampo, &agenteSelecionado)
 		}
 	}
 
-	webPort := os.Getenv("WEB_PORT")
-	if webPort == "" {
-		webPort = "8080"
-	}
-	log.Printf("Iniciando painel web na porta %s\n", webPort)
-	go listeners.StartWebListener(webPort, &agentesEmCampo, &agenteSelecionado)
-
-	// Se estivermos em um terminal interativo, executa o CLI. Caso contrário, apenas loga e espera.
 	if isInteractive() {
-		log.Println("Entrei em execução (modo interativo).")
+		log.Println("Modo interativo ativo.")
 		cliHandler()
-	} else {
-		log.Println("Entrei em execução (modo não interativo). Sem prompt CLI.")
-		select {}
 	}
+	// Bloqueia independente do modo — cliHandler pode retornar se stdin fechar
+	select {}
 }
 
 func isInteractive() bool {
@@ -65,10 +66,13 @@ func isInteractive() bool {
 	if err != nil {
 		return false
 	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
+	// ModeCharDevice sozinho detecta /dev/null como positivo no Linux.
+	// Pipe flag ausente + char device = TTY real.
+	return (fi.Mode()&os.ModeCharDevice != 0) && (fi.Mode()&os.ModeNamedPipe == 0)
 }
 
 func cliHandler() {
+	reader := bufio.NewReader(os.Stdin)
 	for {
 		if agenteSelecionado != "" {
 			print(agenteSelecionado + "@D3C# ")
@@ -76,21 +80,16 @@ func cliHandler() {
 			print("D3C> ")
 		}
 
-		reader := bufio.NewReader(os.Stdin)
-
 		comandoCompleto, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				// evita loop ocupando CPU quando stdin fecha
-				time.Sleep(500 * time.Millisecond)
-				continue
+				// stdin fechou — sai do CLI, main() cai no select{}
+				return
 			}
 			log.Println("Erro lendo stdin:", err)
-			time.Sleep(200 * time.Millisecond)
 			continue
 		}
-		comandoCompleto = strings.Trim(comandoCompleto, "\r")
-		comandoCompleto = strings.Trim(comandoCompleto, "\n")
+		comandoCompleto = strings.Trim(comandoCompleto, "\r\n")
 
 		comandoSeparado := helpers.SeparaComando(comandoCompleto)
 		comandoBase := strings.TrimSpace(comandoSeparado[0])
@@ -111,7 +110,5 @@ func cliHandler() {
 
 			mapping[comandoId].Executar()
 		}
-
 	}
-
 }

