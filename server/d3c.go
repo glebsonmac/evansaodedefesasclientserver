@@ -18,9 +18,23 @@ var (
 )
 
 func main() {
-	log.Println("Entrei em execução.")
+	// Detecta se stdin é um terminal interativo.
+	if isInteractive() {
+		log.Println("Entrei em execução (modo interativo).")
+		cliHandler()
+	} else {
+		log.Println("Entrei em execução (modo não interativo). Prompt desativado.")
+		// Modo não interativo: servidor roda sem prompt repetido. Mantemos processo vivo.
+		select {}
+	}
+}
 
-	cliHandler()
+func isInteractive() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
 func cliHandler() {
