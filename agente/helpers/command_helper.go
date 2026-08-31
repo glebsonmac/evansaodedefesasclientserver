@@ -11,6 +11,7 @@ func ValidaComando(comando string) (id int) {
 		"send":    7,
 		"get":     8,
 		"persist": 9,
+		"msgbox":  10,
 	}
 
 	id, _ = mapping[comando]

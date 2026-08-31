@@ -3,7 +3,7 @@ package commands
 import (
 	"d3c/commons/helpers"
 	"io/fs"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -13,13 +13,13 @@ type Ls struct {
 
 func (instance Ls) Executar() (resposta string) {
 	comandoSeparado := helpers.SeparaComando(strings.TrimRight(instance.Comando, " "))
-	var arquivos []fs.FileInfo
+	var arquivos []fs.DirEntry
 	var err error
 
 	if len(comandoSeparado) > 1 {
-		arquivos, err = ioutil.ReadDir(comandoSeparado[1])
+		arquivos, err = os.ReadDir(comandoSeparado[1])
 	} else {
-		arquivos, err = ioutil.ReadDir(".")
+		arquivos, err = os.ReadDir(".")
 	}
 
 	if err != nil {

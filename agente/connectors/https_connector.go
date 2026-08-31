@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 )
 
 type HttpsConnector struct {
@@ -14,6 +15,7 @@ type HttpsConnector struct {
 
 func (self *HttpsConnector) Execute(servidor, porta string, mensagem *estruturas.Mensagem) {
 	client := &http.Client{
+		Timeout: 15 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -45,5 +47,7 @@ func (self *HttpsConnector) Execute(servidor, porta string, mensagem *estruturas
 		return
 	}
 
-	json.Unmarshal(bodyBytes, &mensagem)
+	if err = json.Unmarshal(bodyBytes, &mensagem); err != nil {
+		return
+	}
 }
